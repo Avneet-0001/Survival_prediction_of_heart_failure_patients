@@ -1,0 +1,57 @@
+---
+title: "Project_Random_Forests"
+author: "Avneet Kaur"
+date: "2022-12-05"
+output: html_document
+---
+
+```{r}
+df = read.csv("heart_failure_clinical_records_dataset.csv")
+df$DEATH_EVENT  = as.factor(df$DEATH_EVENT)
+attach(df)
+```
+
+Implementing Bagging considering DEATH_EVENT as the response variable and all other variables as predictor variables except time.
+```{r}
+library(randomForest)
+set.seed(2331)
+dfbag <- randomForest(DEATH_EVENT~., data=df, mtry=12, importance=TRUE)
+dfbag
+```
+
+Importance plot
+```{r, fig.width=10}
+varImpPlot(dfbag)
+```
+
+Implementing Bagging on the the top 3 important predictor variables: "serum_creatinine","ejection_fraction","time"
+```{r}
+set.seed(2331)
+dfbag1 <- randomForest(DEATH_EVENT~., data=df[,c("serum_creatinine","ejection_fraction","time")], mtry=3, importance=TRUE)
+dfbag1
+```
+
+Implementing Random Forests
+
+```{r}
+set.seed(231)
+dfbag2 <- randomForest(DEATH_EVENT~., data=df, importance=TRUE)
+```
+```{r}
+dfbag2
+```
+
+Importance plots
+
+```{r, fig.width=10}
+varImpPlot(dfbag2)
+```
+
+Implementing Random forest on the the top 3 important predictor variables: "serum_creatinine","ejection_fraction","time"
+```{r}
+set.seed(233)
+dfbag3 <- randomForest(DEATH_EVENT~., data=df[,c("serum_creatinine","ejection_fraction","time")], importance=TRUE)
+```
+```{r}
+dfbag3
+```

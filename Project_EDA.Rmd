@@ -1,0 +1,159 @@
+---
+title: "Project_EDA"
+author: "Avneet Kaur"
+date: "2022-12-04"
+output: html_document
+---
+
+```{r}
+df = read.csv("heart_failure_clinical_records_dataset.csv")
+head(df)
+summary(df)
+
+df$DEATH_EVENT <- factor(df$DEATH_EVENT)
+attach(df)
+```
+
+```{r}
+boxplot(age~DEATH_EVENT,data=df, main="Age", xlab="DEATH_EVENT", ylab="Age")
+
+boxplot(ejection_fraction~DEATH_EVENT,data=df, main="Ejection_fraction", xlab="DEATH_EVENT", ylab="Ejection_fraction")
+
+boxplot(serum_creatinine~DEATH_EVENT,data=df, main="Serum_creatinine", xlab="DEATH_EVENT", ylab="Serum_creatinine")
+
+boxplot(creatinine_phosphokinase~DEATH_EVENT,data=df, main="Creatinine_phosphokinase", xlab="DEATH_EVENT", ylab="Creatinine_phosphokinase")
+
+boxplot(platelets~DEATH_EVENT,data=df, main="Platelets", xlab="DEATH_EVENT", ylab="Platelets")
+
+boxplot(serum_sodium~DEATH_EVENT,data=df, main="Serum_sodium", xlab="DEATH_EVENT", ylab="Serum_sodium")
+
+```
+
+In summary, the patients who died following a heart failure seem to have a lower Ejection Fraction and Serum Sodium. They also seem to have slightly higher levels of Serum Creatinine and Creatine Phosphokinase.
+
+
+```{r}
+print(paste0("Mean serum creatinine level for women", mean(df$serum_creatinine[df$sex==0])))
+print(paste0("Mean serum creatinine level for men", mean(df$serum_creatinine[df$sex==1])))
+```
+
+```{r, fig.width=8, fig.height=8}
+library(corrplot)
+cr = cor(df[,-13])
+corrplot(cr, method = "number", number.cex=0.4)
+
+```
+
+The correlation map shows a positive correlation between smoking and sex. Rest of the variables are mostly uncorrelated.
+
+```{r}
+library(sm)
+
+attach(df)
+
+# plot densities
+comp <- sm.density.compare(df$age, DEATH_EVENT, xlab="age")
+title(main="Age")
+
+legend("topright", title="DEATH_EVENT", comp$levels, col = comp$col, lty = comp$lty, lwd = comp$lwd)
+
+####### 
+comp <- sm.density.compare(df$creatinine_phosphokinase, DEATH_EVENT, xlab="creatinine_phosphokinase")
+title(main="Creatinine_phosphokinase")
+
+legend("topright", title="DEATH_EVENT", comp$levels, col = comp$col, lty = comp$lty, lwd = comp$lwd)
+
+#####
+
+comp <- sm.density.compare(df$ejection_fraction, DEATH_EVENT, xlab="ejection_fraction")
+title(main="Ejection_fraction")
+
+legend("topright", title="DEATH_EVENT", comp$levels, col = comp$col, lty = comp$lty, lwd = comp$lwd)
+
+#####
+comp <- sm.density.compare(df$platelets, DEATH_EVENT, xlab="platelets")
+title(main="Platelets")
+
+legend("topright", title="DEATH_EVENT", comp$levels, col = comp$col, lty = comp$lty, lwd = comp$lwd)
+
+####
+comp <- sm.density.compare(df$serum_creatinine, DEATH_EVENT, xlab="serum_creatinine")
+title(main="Serum_creatinine")
+
+legend("topright", title="DEATH_EVENT", comp$levels, col = comp$col, lty = comp$lty, lwd = comp$lwd)
+
+####
+comp <- sm.density.compare(df$serum_sodium, DEATH_EVENT, xlab="serum_sodium")
+title(main="Serum_sodium")
+
+legend("topright", title="DEATH_EVENT", comp$levels, col = comp$col, lty = comp$lty, lwd = comp$lwd)
+
+```
+
+Class imbalance
+
+```{r}
+w = table(df$DEATH_EVENT)
+piepercent <- round(prop.table(w)*100, 2)
+piepercent <- paste(c("Alive","Dead"), piepercent)
+pie(w, labels = paste(piepercent, "%", sep = ""), main = "", col=c("red", "green"))
+
+w = table(df$sex)
+piepercent <- round(prop.table(w)*100, 2)
+piepercent <- paste(c("Woman","Man"), piepercent)
+pie(w, labels = paste(piepercent, "%", sep = ""), main = "", col=c("red", "green"))
+
+```
+
+We can see that there is an imbalance in the observations: there are more observations on the people who survived the heart failure than the ones who died of it. Also, there are more observation for men than women. So, the model would predict better for men if we happen to use sex as a predictor variable.
+
+```{r}
+counts <- table(DEATH_EVENT, anaemia)
+counts
+
+barplot(counts, main="",
+  xlab="anaemia", col=c("blue","red"), legend = rownames(counts), beside=TRUE, args.legend=list(title="DEATH_EVENT"))
+
+#########
+counts <- table(DEATH_EVENT, diabetes)
+counts
+
+barplot(counts, main="",
+  xlab="diabetes", col=c("blue","red"), legend = rownames(counts), beside=TRUE, args.legend=list(title="DEATH_EVENT"))
+
+#######
+counts <- table(DEATH_EVENT, high_blood_pressure)
+counts
+
+barplot(counts, main="",
+  xlab="high_blood_pressure", col=c("blue","red"), legend = rownames(counts), beside=TRUE, args.legend=list(title="DEATH_EVENT"))
+
+#######
+counts <- table(DEATH_EVENT, sex)
+counts
+
+barplot(counts, main="",
+  xlab="sex", col=c("blue","red"), legend = rownames(counts), beside=TRUE, args.legend=list(title="DEATH_EVENT"))
+
+######
+counts <- table(DEATH_EVENT, smoking)
+counts
+
+barplot(counts, main="",
+  xlab="smoking", col=c("blue","red"), legend = rownames(counts), beside=TRUE, args.legend=list(title="DEATH_EVENT"))
+```
+
+Implementation of k-means clustering
+
+```{r}
+wsstore <- NULL
+for (i in 1:10){
+  kmeansfit <- kmeans(scale(df[,c("age","creatinine_phosphokinase", "ejection_fraction", "platelets", "serum_creatinine", "serum_sodium")]), i)
+  wsstore[i] <- kmeansfit$tot.withinss
+} 
+plot(wsstore, ylab="Within sum of squares",main="Scree plot")
+```
+
+Since, Within Sum of Squares reduces uniformly for different values of k in k-means clustering, this suggests that there are no underlying groups in the data.
+
+

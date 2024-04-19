@@ -1,0 +1,250 @@
+---
+title: "Project"
+author: "Avneet Kaur"
+date: "2022-12-02"
+output: html_document
+---
+
+```{r}
+df = read.csv("heart_failure_clinical_records_dataset.csv")
+head(df)
+```
+
+```{r}
+attach(df)
+
+glmfit <- glm(factor(DEATH_EVENT) ~. , data=df, family="binomial")
+summary(glmfit)
+```
+
+On fitting logistic regression model with all the predictor variables, the summary output shows that "age", "ejection_fraction", "serum_creatinine", and "time" are the significant predictors and so we can remove the rest while fitting.
+
+Applying Backward selection
+
+```{r}
+glmfit <- glm(factor(DEATH_EVENT) ~.-anaemia , data=df, family="binomial")
+summary(glmfit)
+```
+
+```{r}
+glmfit <- update(glmfit, .~. - smoking)
+summary(glmfit)
+```
+
+```{r}
+glmfit <- update(glmfit, .~. - high_blood_pressure)
+summary(glmfit)
+```
+
+```{r}
+glmfit <- update(glmfit, .~. - diabetes)
+summary(glmfit)
+```
+
+```{r}
+glmfit <- update(glmfit, .~. - platelets)
+summary(glmfit)
+```
+
+```{r}
+glmfit <- update(glmfit, .~. - creatinine_phosphokinase)
+summary(glmfit)
+```
+
+```{r}
+glmfit <- update(glmfit, .~. - sex)
+summary(glmfit)
+```
+
+```{r}
+glmfit <- update(glmfit, .~. - serum_sodium)
+summary(glmfit)
+```
+
+```{r}
+glmfit <- glm(factor(DEATH_EVENT)~age+ejection_fraction+serum_creatinine+time, data=df, family="binomial")
+summary(glmfit)
+```
+
+We are now getting each of the predictor variables as significant.
+
+Now let us try fitting logistic regression model by splitting the data into training and testing set.
+
+1. Splitting the data into 80:20 ratio.
+```{r}
+st_num = 16756777
+set.seed(st_num)                                                        
+N = nrow(df) # total number of observations                                     
+n = 0.8*N # number of observations in training                          
+m = 0.2*N # number of observations in testing        
+
+tr_ind = sample(N, n) # row index of training observations           
+te_ind = setdiff(seq_len(N), tr_ind) # row index of test obs           
+
+# Training Set                                                  
+tr_set = df[tr_ind,] # training set
+tr_x = tr_set[,-13] # stores the X inputs for the training set
+tr_y = tr_set[,13] # stores the Y output for the training set
+
+# Testing Set 
+te_set = df[te_ind,] # test set 
+te_x = te_set[,-13] # stores the X inputs for the test set
+te_y = te_set[,13] # stores the Y output for the test set
+```
+
+Fitting the logistic regression model on the training set and then computing Misclassification rate by making prediction on the test set.
+
+```{r}
+glmfit <- glm(factor(DEATH_EVENT)~age+ejection_fraction+serum_creatinine+time, data=tr_set, family="binomial")
+summary(glmfit)
+
+te_pr = predict(glmfit, newdata = te_set, type = "response")
+
+pred_class = rep(NA, length(te_pr))
+
+for(i in 1:length(te_pr)){
+  pred_class[i] = ifelse(te_pr[i] > 0.5, 1, 0)
+}
+
+tab = table(te_set$DEATH_EVENT, pred_class)
+tab
+
+# Misclassification rate
+mcr <- (sum(tab)-sum(diag(tab)))/sum(tab)
+
+```
+
+```{r}
+# Misclassification rate
+mcr
+```
+
+Calculating other Performance evaluation metrics.
+
+```{r, echo=FALSE}
+library(MLmetrics)
+
+# f1_Score = F1_Score(te_set$DEATH_EVENT, pred_class)
+# f1_Score
+# 
+# logloss = LogLoss(pred_class, te_set$DEATH_EVENT)
+# logloss
+# 
+# sensitivity <- Sensitivity(te_set$DEATH_EVENT, pred_class)
+# sensitivity
+# 
+# recall <- Recall(te_set$DEATH_EVENT, pred_class)
+# recall
+# 
+# precision <- Precision(te_set$DEATH_EVENT, pred_class)
+# precision
+# 
+# specificity <- Specificity(te_set$DEATH_EVENT, pred_class)
+# specificity
+
+```
+
+Now, let us try logistic regression using k-fold cross validation (k=5, 10).
+
+```{r}
+set.seed(9)
+n = nrow(df)
+k_list <- c(5,10)
+msecv1 <- NA
+
+for (j in 1:length(k_list)) {
+  k = k_list[j]
+  # reorder you observations
+  rdf = df[sample(n),] 
+  # Create k approx. equally size folds
+  folds <- cut(1:n, breaks=k, labels=FALSE)
+
+  for (i in 1:k) {
+    train = which(folds != i)
+    validation = which(folds == i)
+    
+    fit <- glm(factor(DEATH_EVENT)~age+ejection_fraction+serum_creatinine+time, data=df, subset=train, family="binomial")
+    pred_class = ifelse(predict(fit, newdata=df[validation,], type="response")>0.5, 1, 0)
+    tb = table(df[validation,]$DEATH_EVENT, pred_class)
+    msecv1[i] = (sum(tb)-sum(diag(tb)))/sum(tb)
+  }
+  print(paste0("For k = ", k, " Cross-validation test error is ", sum(msecv1)/k, "."))
+}
+```
+
+The cross-validated MSE estimate is smaller for k=10, so we will go forward with 10-fold cross-validation and evaluate model's performance.
+
+```{r}
+k = 10
+msecv1 <- NA
+# f1_Score1 <- NA
+# logloss1 <- NA
+# recall1 <- NA
+# precision1 <- NA
+
+folds <- cut(1:n, breaks=k, labels=FALSE)
+
+for (i in 1:k) {
+  train = which(folds != i)
+  validation = which(folds == i)
+    
+  fit <- glm(factor(DEATH_EVENT)~age+ejection_fraction+serum_creatinine+time, data=df, subset=train, family="binomial")
+  
+  pred_class = ifelse(predict(fit, newdata=df[validation,], type="response")>0.5, 1, 0)
+  
+  tb = table(df[validation,]$DEATH_EVENT, pred_class)
+  msecv1[i] = (sum(tb)-sum(diag(tb)))/sum(tb)
+  # f1_Score1[i] = F1_Score(df[validation,]$DEATH_EVENT, pred_class)
+  # 
+  # logloss1[i] = LogLoss(pred_class, df[validation,]$DEATH_EVENT)
+  # 
+  # recall1[i] <- Recall(df[validation,]$DEATH_EVENT, pred_class)
+  # 
+  # precision1[i] <- Precision(df[validation,]$DEATH_EVENT, pred_class)
+
+}
+
+print(paste0("Cross-validation test error is ", sum(msecv1)/k, "."))
+# print(paste0("Cross-validation F1 Score is ", sum(f1_Score1)/k, "."))
+# print(paste0("Cross-validation LogLoss is ", sum(logloss1)/k, "."))
+# print(paste0("Cross-validation Recall is ", sum(recall1)/k, "."))
+# print(paste0("Cross-validation Precision is ", sum(precision1)/k, "."))
+
+```
+
+```{r}
+k = 10
+# msecv1 <- NA
+# f1_Score1 <- NA
+# logloss1 <- NA
+# recall1 <- NA
+# precision1 <- NA
+
+folds <- cut(1:n, breaks=k, labels=FALSE)
+
+for (i in 1:k) {
+  train = which(folds != i)
+  validation = which(folds == i)
+    
+  fit <- glm(factor(DEATH_EVENT)~age+ejection_fraction+serum_creatinine, data=df, subset=train, family="binomial")
+  
+  pred_class = ifelse(predict(fit, newdata=df[validation,], type="response")>0.5, 1, 0)
+  
+  tb = table(df[validation,]$DEATH_EVENT, pred_class)
+  msecv1[i] = (sum(tb)-sum(diag(tb)))/sum(tb)
+  # f1_Score1[i] = F1_Score(df[validation,]$DEATH_EVENT, pred_class)
+  # 
+  # logloss1[i] = LogLoss(pred_class, df[validation,]$DEATH_EVENT)
+  # 
+  # recall1[i] <- Recall(df[validation,]$DEATH_EVENT, pred_class)
+  # 
+  # precision1[i] <- Precision(df[validation,]$DEATH_EVENT, pred_class)
+
+}
+
+print(paste0("Cross-validation test error is ", sum(msecv1)/k, "."))
+# print(paste0("Cross-validation F1 Score is ", sum(f1_Score1)/k, "."))
+# print(paste0("Cross-validation LogLoss is ", sum(logloss1)/k, "."))
+# print(paste0("Cross-validation Recall is ", sum(recall1)/k, "."))
+# print(paste0("Cross-validation Precision is ", sum(precision1)/k, "."))
+```

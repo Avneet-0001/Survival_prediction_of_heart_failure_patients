@@ -1,0 +1,60 @@
+---
+title: "Project_Classification_Tree"
+author: "Avneet Kaur"
+date: "2022-12-05"
+output: html_document
+---
+
+```{r}
+df = read.csv("heart_failure_clinical_records_dataset.csv")
+df$DEATH_EVENT  = as.factor(df$DEATH_EVENT)
+attach(df)
+```
+
+```{r, fig.height=8, fig.width=11}
+library(tree)
+
+new.df <- df
+btree <- tree(DEATH_EVENT~., data=new.df)
+plot(btree)
+text(btree)
+```
+
+```{r}
+set.seed(10) 
+tree_cv <- cv.tree(btree, FUN=prune.misclass)
+plot(tree_cv, type="b")
+```
+
+To figure out the best number of terminal nodes to prune the tree:
+
+```{r}
+best.val <- tree_cv$size[which.min(tree_cv$dev)]
+best.val
+```
+
+Prune the tree:
+
+```{r, fig.height=8, fig.width=11}
+ptree <- prune.tree(btree, best=best.val) 
+plot(ptree)
+text(ptree)
+summary(ptree)
+```
+
+And the last step is to find the Cross-validation error estimate:
+
+```{r}
+n <- nrow(new.df)
+
+min_idx <- which.min(tree_cv$dev)
+min_idx
+
+# Misclassification rate
+mscr <- tree_cv$dev[min_idx]/n
+mscr
+```
+
+```{r}
+pairs(new.df[,c("serum_creatinine","ejection_fraction","age")], col=predict(ptree, newdata=new.df, type="class"))
+```

@@ -1,0 +1,77 @@
+---
+title: "Project_kNN"
+author: "Avneet Kaur"
+date: "2022-12-05"
+output: html_document
+---
+
+```{r}
+df = read.csv("heart_failure_clinical_records_dataset.csv")
+df$DEATH_EVENT  = as.factor(df$DEATH_EVENT)
+attach(df)
+```
+
+```{r}
+library(class)
+
+st_num = 16756777
+set.seed(st_num)                                                        
+N = nrow(df) # total number of observations                                     
+n = 0.8*N # number of observations in training                          
+m = 0.2*N # number of observations in testing        
+
+tr_ind = sample(N, n) # row index of training observations           
+te_ind = setdiff(seq_len(N), tr_ind) # row index of test obs           
+
+# Training Set                                                  
+tr_set = df[tr_ind,] # training set 
+tr_x = tr_set[,-13] # stores the X inputs for the training set
+tr_y = tr_set[,13] # stores the Y output for the training set
+
+# Testing Set 
+te_set = df[te_ind,] # test set 
+te_x = te_set[,-13] # stores the X inputs for the test set
+te_y = te_set[,13] # stores the Y output for the test set
+```
+
+```{r}
+k_list <- 1:20
+k_inv_list <- 1/k_list
+k_inv_list
+mse <- NA
+
+for (k in k_list){
+  knnrun <- knn(tr_x, te_x, tr_y, k=k, prob=TRUE)
+  tab <- table(te_y, knnrun)
+  mse[k] <- (sum(tab)-sum(diag(tab)))/sum(tab)
+}
+
+```
+
+```{r}
+err_train = c()
+for (k in k_list){
+ knn_model =   knn(tr_x, tr_x, tr_y, k=k, prob=TRUE)
+ tb <- table(knn_model,tr_y)
+ err = (sum(tb)-sum(diag(tb)))/sum(tb)
+ err_train = c(err_train,err)
+}
+```
+
+```{r}
+plot(k_inv_list, mse, type="o", col='blue', pch="o", lty=1, xlab='1/k', ylab='Error', ylim=c(-0.2,0.6))
+
+points(k_inv_list, err_train, col="red", pch="o")
+lines(k_inv_list, err_train, col='red', lty=2)
+
+legend("bottomright", legend=c("training error", "testing error"), col=c("red","blue"), pch=c("o","o"),lty=c(2,1), ncol=1)
+```
+
+```{r}
+mse
+
+opt_k <- which.min(mse)
+opt_k
+
+print(paste0("Error rate from kNN Classification with k = ", opt_k, " is ", mse[opt_k]))
+```

@@ -1,0 +1,65 @@
+---
+title: "Project_Boosting"
+author: "Avneet Kaur"
+date: "2022-12-15"
+output: html_document
+---
+
+```{r}
+df = read.csv("heart_failure_clinical_records_dataset.csv")
+#df$DEATH_EVENT  = as.factor(df$DEATH_EVENT)
+attach(df)
+```
+
+```{r}
+library(gbm)
+dfboost <- gbm(DEATH_EVENT~., distribution="bernoulli", data=df,
+                n.trees=3000, interaction.depth=1)
+summary(dfboost)
+```
+
+
+```{r}
+set.seed(456)
+
+train <- sample(1:nrow(df), round(0.7*nrow(df)))
+dfboost <- gbm(DEATH_EVENT~time+creatinine_phosphokinase+serum_creatinine+ejection_fraction, distribution="bernoulli", data=df[train,],
+                n.trees=3000, interaction.depth=1)
+pprobs <- predict(dfboost, newdata=df[-train, ], type="response",
+                  n.trees=3000) 
+(boosttab <-  table(df$DEATH_EVENT[-train], pprobs>0.5 ))
+
+mcr <- (sum(boosttab)-sum(diag(boosttab)))/sum(boosttab)
+mcr
+```
+
+This gives us the validated test error.
+
+```{r}
+n = nrow(df)
+k = 10
+msecv1 <- NA
+f1_Score1 <- NA
+logloss1 <- NA
+recall1 <- NA
+precision1 <- NA
+
+folds <- cut(1:n, breaks=k, labels=FALSE)
+
+for (i in 1:k) {
+  train = which(folds != i)
+  validation = which(folds == i)
+  
+  fit <- gbm(DEATH_EVENT~ejection_fraction+serum_creatinine+time+creatinine_phosphokinase, data=df[train,], distribution="bernoulli", n.trees=520, interaction.depth=1)
+  
+  pred_class = ifelse(predict(fit, newdata=df[validation,], type="response")>0.5, 1, 0)
+  
+  tb = table(df[validation,]$DEATH_EVENT, pred_class)
+  msecv1[i] = (sum(tb)-sum(diag(tb)))/sum(tb)
+
+}
+
+print(paste0("Cross-validation test error is ", sum(msecv1)/k, "."))
+
+
+```
